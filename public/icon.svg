@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <rect width="100" height="100" rx="20" fill="#b91c1c"/>
+  <path d="M50 15 L78 75 L62 70 L50 82 L38 70 L22 75 Z" fill="#fbbf24" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="50" cy="15" r="4.5" fill="#ffffff"/>
+  <circle cx="22" cy="75" r="4" fill="#ffffff"/>
+  <circle cx="78" cy="75" r="4" fill="#ffffff"/>
+  <circle cx="50" cy="48" r="6" fill="#b91c1c"/>
+  <text x="50" y="93" font-family="sans-serif" font-size="9" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">NARRENKREIS</text>
+</svg>

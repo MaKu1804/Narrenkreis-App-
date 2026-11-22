@@ -1,0 +1,139 @@
+{
+  "entities": {
+    "Club": {
+      "title": "Club",
+      "description": "Ein Mitgliedsverein oder eine Zunft im Narrenkreis Bruchsal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "shortName": { "type": "string" },
+        "category": { "type": "string" },
+        "logo": { "type": "string" },
+        "color": { "type": "string" },
+        "description": { "type": "string" },
+        "memberCount": { "type": "number" },
+        "establishedYear": { "type": "number" },
+        "location": { "type": "string" },
+        "clubhouseAddress": { "type": "string" }
+      },
+      "required": ["id", "name", "category"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Ein registriertes Vereins- oder Präsidiumsmitglied im Narrenkreis Bruchsal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "mobile": { "type": "string" },
+        "secondaryMobile": { "type": "string" },
+        "clubId": { "type": "string" },
+        "positionInClub": { "type": "string" },
+        "praesidiumRole": { "type": "string" },
+        "isPraesident": { "type": "boolean" },
+        "isZugmarschall": { "type": "boolean" },
+        "avatar": { "type": "string" },
+        "joinedDate": { "type": "string" },
+        "hasAcceptedTerms": { "type": "boolean" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "bio": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "clubId", "positionInClub"]
+    },
+    "Protocol": {
+      "title": "Protocol",
+      "description": "Ein hochgeladenes Sitzungsprotokoll des Narrenkreises",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "meetingType": { "type": "string", "enum": ["Narrenkreissitzung", "Jahreshauptversammlung"] },
+        "description": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileSize": { "type": "number" },
+        "fileType": { "type": "string" },
+        "fileData": { "type": "string" },
+        "uploadedByUserId": { "type": "string" },
+        "uploadedByUserName": { "type": "string" },
+        "uploadedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "date", "meetingType", "fileName", "fileData"]
+    },
+    "ForumPost": {
+      "title": "ForumPost",
+      "description": "Ein Beitrag oder eine Umfrage im Forum",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorClub": { "type": "string" },
+        "authorUserId": { "type": "string" },
+        "category": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "content", "authorName", "authorUserId"]
+    },
+    "Excursion": {
+      "title": "Excursion",
+      "description": "Eine Fastnachts-Veranstaltung oder ein Umzug",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "locationName": { "type": "string" },
+        "category": { "type": "string" },
+        "organizerId": { "type": "string" },
+        "organizerName": { "type": "string" }
+      },
+      "required": ["id", "title", "date", "locationName", "category"]
+    },
+    "SentEmail": {
+      "title": "SentEmail",
+      "description": "Eine versendete Nachricht über den Messenger",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fromName": { "type": "string" },
+        "fromEmail": { "type": "string" },
+        "subject": { "type": "string" },
+        "body": { "type": "string" },
+        "sentAt": { "type": "string" }
+      },
+      "required": ["id", "fromName", "fromEmail", "subject", "body", "sentAt"]
+    }
+  },
+  "firestore": {
+    "/clubs/{clubId}": {
+      "schema": "Club",
+      "description": "Verzeichnis der Mitgliedsvereine"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Registrierte Mitglieder und Präsidium"
+    },
+    "/protocols/{protocolId}": {
+      "schema": "Protocol",
+      "description": "Offizielle Sitzungsprotokolle"
+    },
+    "/forumPosts/{postId}": {
+      "schema": "ForumPost",
+      "description": "Forumbeiträge und Abstimmungen"
+    },
+    "/excursions/{excursionId}": {
+      "schema": "Excursion",
+      "description": "Veranstaltungen und Termine"
+    },
+    "/sentEmails/{emailId}": {
+      "schema": "SentEmail",
+      "description": "Nachrichten und Verteiler"
+    }
+  }
+}

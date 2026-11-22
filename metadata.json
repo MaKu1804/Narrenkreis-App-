@@ -1,0 +1,6 @@
+{
+  "name": "VereinsHub & Ausflugsplaner",
+  "description": "Gemeinschaftsplattform für Vereine: Forum mit Abstimmungen und Bewertungen, Ausflugsplanung mit Teilnehmerlisten, Treffpunkt-Kartenansicht, Kalender und Vereinsprofilen.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
