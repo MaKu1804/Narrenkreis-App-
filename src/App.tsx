@@ -862,6 +862,64 @@ export default function App() {
     dbDeleteVereinigungEntry(entryId);
   };
 
+  const handleAddVereinigungComment = (entryId: string, content: string) => {
+    const trimmed = content.trim().slice(0, 2000);
+    if (!trimmed) return;
+    const nowIso = new Date().toISOString();
+    const newComment = {
+      id: `vcomm-${Date.now()}`,
+      authorId: currentUser.id,
+      authorName: currentUser.name,
+      authorClubId: currentUser.clubId || '',
+      content: trimmed,
+      createdAt: nowIso,
+    };
+
+    setVereinigungEntries(prev => {
+      let updatedTarget: VereinigungEntry | undefined;
+      const next = prev.map(entry => {
+        if (entry.id !== entryId) return entry;
+        updatedTarget = {
+          ...entry,
+          comments: [...(entry.comments || []), newComment].slice(-200),
+          updatedAt: nowIso,
+        };
+        return updatedTarget;
+      });
+      if (updatedTarget) {
+        dbSaveVereinigungEntry(updatedTarget);
+      }
+      return next;
+    });
+  };
+
+  const handleDeleteVereinigungComment = (entryId: string, commentId: string) => {
+    setVereinigungEntries(prev => {
+      let updatedTarget: VereinigungEntry | undefined;
+      const next = prev.map(entry => {
+        if (entry.id !== entryId) return entry;
+        const targetComment = (entry.comments || []).find(c => c.id === commentId);
+        if (!targetComment) return entry;
+        const allowed =
+          targetComment.authorId === currentUser.id ||
+          isPraesidium ||
+          (entry.type === 'news' && canManageVereinigungNews(currentUser));
+        if (!allowed) return entry;
+
+        updatedTarget = {
+          ...entry,
+          comments: (entry.comments || []).filter(c => c.id !== commentId),
+          updatedAt: new Date().toISOString(),
+        };
+        return updatedTarget;
+      });
+      if (updatedTarget) {
+        dbSaveVereinigungEntry(updatedTarget);
+      }
+      return next;
+    });
+  };
+
 
   // If not logged in, show the Login & Registration Portal as the exclusive Landing Screen
   if (!isLoggedIn) {
@@ -1016,9 +1074,7 @@ export default function App() {
     );
   }
 
-  const isVereinigungWatermark =
-    activeTab === 'vereinigung' ||
-    (isPraesidium && activeTab === 'praesidium' && praesidiumSubTab === 'vereinigung');
+  const isVereinigungWatermark = activeTab === 'vereinigung';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans relative overflow-x-hidden w-full max-w-full transition-colors duration-200">
@@ -1155,6 +1211,8 @@ export default function App() {
             onSubTabChange={setVereinigungSubTab}
             onSaveEntry={handleSaveVereinigungEntry}
             onDeleteEntry={handleDeleteVereinigungEntry}
+            onAddComment={handleAddVereinigungComment}
+            onDeleteComment={handleDeleteVereinigungComment}
             onSendEmail={handleSendEmail}
             isCreateOpen={isVereinigungCreateOpen}
             onOpenCreate={() => setIsVereinigungCreateOpen(true)}
@@ -1197,12 +1255,8 @@ export default function App() {
             onCreateUser={handleCreateUser}
             activeSubTab={praesidiumSubTab}
             onSubTabChange={setPraesidiumSubTab}
-            vereinigungEntries={vereinigungEntries}
-            onSaveVereinigungEntry={handleSaveVereinigungEntry}
-            onDeleteVereinigungEntry={handleDeleteVereinigungEntry}
             vereinigungSettings={vereinigungSettings}
             onSaveVereinigungSettings={handleSaveVereinigungSettings}
-            onSendEmail={handleSendEmail}
           />
         )}
       </main>

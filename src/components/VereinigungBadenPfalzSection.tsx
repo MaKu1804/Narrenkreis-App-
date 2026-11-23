@@ -26,6 +26,7 @@ import {
   MapPin,
   Copy,
   Flag,
+  MessageCircle,
 } from 'lucide-react';
 import {
   AenderungStatus,
@@ -40,7 +41,7 @@ import {
   isPraesidiumMember,
   isVereinigungNewsManager,
 } from '../utils/clubLogic';
-import { ClubLogo } from './ClubLogo';
+import { ClubLogo, MemberClubLogos } from './ClubLogo';
 import { ProtocolReaderModal } from './ProtocolReaderModal';
 
 export type VereinigungSubTab = 'news' | 'aenderungsmitteilung';
@@ -55,6 +56,8 @@ interface VereinigungBadenPfalzSectionProps {
   onSubTabChange: (tab: VereinigungSubTab) => void;
   onSaveEntry: (entry: VereinigungEntry) => void;
   onDeleteEntry: (entryId: string) => void;
+  onAddComment?: (entryId: string, content: string) => void;
+  onDeleteComment?: (entryId: string, commentId: string) => void;
   onSendEmail?: (email: SentEmail) => void;
   isCreateOpen: boolean;
   onOpenCreate: () => void;
@@ -118,6 +121,8 @@ export const VereinigungBadenPfalzSection: React.FC<VereinigungBadenPfalzSection
   onSubTabChange,
   onSaveEntry,
   onDeleteEntry,
+  onAddComment,
+  onDeleteComment,
   onSendEmail,
   isCreateOpen,
   onOpenCreate,
@@ -128,6 +133,8 @@ export const VereinigungBadenPfalzSection: React.FC<VereinigungBadenPfalzSection
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Alle' | AenderungStatus>('Alle');
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [collapsedCommentsMap, setCollapsedCommentsMap] = useState<Record<string, boolean>>({});
 
   // News Create / Edit modal state
   const [editingEntry, setEditingEntry] = useState<VereinigungEntry | null>(null);
@@ -395,6 +402,7 @@ export const VereinigungBadenPfalzSection: React.FC<VereinigungBadenPfalzSection
       attachmentSize: formAttachmentSize,
       attachmentType: formAttachmentType,
       attachmentData: formAttachmentData,
+      comments: editingEntry ? editingEntry.comments : undefined,
       authorId: editingEntry ? editingEntry.authorId : currentUser.id,
       authorName: editingEntry ? editingEntry.authorName : currentUser.name,
       createdAt: editingEntry ? editingEntry.createdAt : nowIso,
@@ -403,6 +411,14 @@ export const VereinigungBadenPfalzSection: React.FC<VereinigungBadenPfalzSection
 
     onSaveEntry(entry);
     handleCloseForm();
+  };
+
+  const handleSubmitEntryComment = (entryId: string) => {
+    const text = (commentInputs[entryId] || '').trim();
+    if (!text || !onAddComment) return;
+    onAddComment(entryId, text);
+    setCommentInputs((prev) => ({ ...prev, [entryId]: '' }));
+    setCollapsedCommentsMap((prev) => ({ ...prev, [entryId]: false }));
   };
 
   const handleQuickStatusChange = (entry: VereinigungEntry, nextStatus: AenderungStatus) => {
@@ -1376,19 +1392,146 @@ export const VereinigungBadenPfalzSection: React.FC<VereinigungBadenPfalzSection
                     )}
                   </span>
 
-                  {safeLink && (
-                    <a
-                      href={safeLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-semibold text-sky-700 dark:text-sky-400 hover:underline"
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      <span>Weiterführender Link öffnen</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
+                  <div className="flex flex-wrap items-center gap-3">
+                    {onAddComment && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCollapsedCommentsMap((prev) => ({
+                            ...prev,
+                            [entry.id]: !prev[entry.id],
+                          }))
+                        }
+                        className="inline-flex items-center gap-1.5 font-semibold text-amber-800 dark:text-amber-400 hover:underline cursor-pointer"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>
+                          Rückfragen & Kommentare ({(entry.comments || []).length})
+                        </span>
+                      </button>
+                    )}
+
+                    {safeLink && (
+                      <a
+                        href={safeLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-semibold text-sky-700 dark:text-sky-400 hover:underline"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Weiterführender Link öffnen</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
                 </div>
+
+                {/* Kommentar-Feld für Rückfragen (standardmäßig sichtbar bei News oder wenn Kommentare offen sind) */}
+                {onAddComment && !collapsedCommentsMap[entry.id] && (
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-950/60 p-3.5 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <h5 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <MessageCircle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+                        <span>Rückfragen & Kommentare ({(entry.comments || []).length})</span>
+                      </h5>
+                    </div>
+
+                    {(entry.comments || []).length > 0 ? (
+                      <div className="space-y-2">
+                        {(entry.comments || []).map((comm) => {
+                          const commClub = clubs.find((c) => c.id === comm.authorClubId);
+                          const commUser = users.find((u) => u.id === comm.authorId);
+                          const canDeleteComment =
+                            Boolean(onDeleteComment) &&
+                            (comm.authorId === currentUser.id ||
+                              isPraesidium ||
+                              (entry.type === 'news' && canManageNews));
+
+                          return (
+                            <div
+                              key={comm.id}
+                              className="bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-2xs space-y-1"
+                            >
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <MemberClubLogos club={commClub} user={commUser} size="xs" />
+                                  <span className="font-bold text-slate-900 dark:text-white truncate">
+                                    {comm.authorName}
+                                  </span>
+                                  {commClub && (
+                                    <span className="text-slate-500 dark:text-slate-400 text-[11px] truncate">
+                                      ({commClub.shortName || commClub.name})
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-[10px] font-mono tabular-nums text-slate-400 dark:text-slate-500">
+                                    {new Date(comm.createdAt).toLocaleDateString('de-DE', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </span>
+                                  {canDeleteComment && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onDeleteComment?.(entry.id, comm.id)}
+                                      className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-0.5 rounded transition-colors cursor-pointer"
+                                      title="Kommentar löschen"
+                                      aria-label="Kommentar löschen"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="text-xs text-slate-700 dark:text-slate-300 pl-7 whitespace-pre-wrap leading-relaxed">
+                                {comm.content}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Noch keine Rückfragen vorhanden. Bei Fragen zu dieser Meldung einfach unten kommentieren.
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        maxLength={2000}
+                        placeholder="Rückfrage oder Kommentar schreiben..."
+                        aria-label="Rückfrage oder Kommentar schreiben"
+                        value={commentInputs[entry.id] || ''}
+                        onChange={(e) =>
+                          setCommentInputs((prev) => ({
+                            ...prev,
+                            [entry.id]: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSubmitEntryComment(entry.id);
+                          }
+                        }}
+                        className="flex-1 min-w-0 px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSubmitEntryComment(entry.id)}
+                        disabled={!(commentInputs[entry.id] || '').trim()}
+                        className="px-3.5 py-2 text-xs font-bold text-slate-900 bg-amber-300 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-2xs transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Senden</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </article>
             );
           })

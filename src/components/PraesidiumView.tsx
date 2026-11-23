@@ -33,12 +33,10 @@ import { getWhatsAppUrl, getTelUrl } from '../utils/phoneUtils';
 import { 
   UserProfile, 
   Club, 
-  SentEmail,
   PRAESIDIUM_ROLES, 
   PraesidiumRole, 
   VEREINIGUNG_ROLES,
   VereinigungRole,
-  VereinigungEntry,
   VereinigungSettings,
   isPraesidiumMember,
   isVereinigungNewsManager,
@@ -46,9 +44,8 @@ import {
 } from '../utils/clubLogic';
 import { ClubLogo, MemberClubLogos, VereinigungBadgeLogo } from './ClubLogo';
 import { UserAvatar } from './UserAvatar';
-import { VereinigungBadenPfalzSection, VereinigungSubTab } from './VereinigungBadenPfalzSection';
 
-export type PraesidiumTab = 'vereine' | 'mitglieder' | 'vereinigung';
+export type PraesidiumTab = 'vereine' | 'mitglieder';
 
 interface PraesidiumViewProps {
   currentUser: UserProfile;
@@ -66,12 +63,8 @@ interface PraesidiumViewProps {
   onCreateUser?: (newUser: UserProfile) => void;
   activeSubTab?: PraesidiumTab;
   onSubTabChange?: (tab: PraesidiumTab) => void;
-  vereinigungEntries?: VereinigungEntry[];
-  onSaveVereinigungEntry?: (entry: VereinigungEntry) => void;
-  onDeleteVereinigungEntry?: (entryId: string) => void;
   vereinigungSettings?: VereinigungSettings;
   onSaveVereinigungSettings?: (settings: VereinigungSettings) => void;
-  onSendEmail?: (email: SentEmail) => void;
 }
 
 export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
@@ -90,26 +83,18 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
   onCreateUser,
   activeSubTab,
   onSubTabChange,
-  vereinigungEntries = [],
-  onSaveVereinigungEntry,
-  onDeleteVereinigungEntry,
   vereinigungSettings,
-  onSaveVereinigungSettings,
-  onSendEmail
+  onSaveVereinigungSettings
 }) => {
   const isAuthorized = isPraesidiumMember(currentUser);
 
-  // Sub-tab: 'vereine', 'mitglieder', or 'vereinigung' (Vereinigung Baden Pfalz)
+  // Sub-tab: 'vereine' or 'mitglieder'
   const [internalPraesidiumTab, setInternalPraesidiumTab] = useState<PraesidiumTab>(activeSubTab || 'vereine');
   const activePraesidiumTab = activeSubTab ?? internalPraesidiumTab;
   const handleSelectPraesidiumTab = (tab: PraesidiumTab) => {
     setInternalPraesidiumTab(tab);
     onSubTabChange?.(tab);
   };
-
-  // Nested sub-tabs & create modal state for Vereinigung Baden Pfalz
-  const [vereinigungSubTab, setVereinigungSubTab] = useState<VereinigungSubTab>('news');
-  const [isCreateVereinigungOpen, setIsCreateVereinigungOpen] = useState(false);
 
   // Additional notification emails for Änderungsmitteilungen
   const [extraEmailInput, setExtraEmailInput] = useState('');
@@ -505,7 +490,7 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
               <Plus className="w-4 h-4" />
               <span>Neuen Verein aufnehmen</span>
             </button>
-          ) : activePraesidiumTab === 'mitglieder' ? (
+          ) : (
             <button
               type="button"
               onClick={() => setIsAddUserOpen(true)}
@@ -514,16 +499,7 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
               <UserPlus className="w-4 h-4" />
               <span>Neues Mitglied anlegen</span>
             </button>
-          ) : vereinigungSubTab === 'news' ? (
-            <button
-              type="button"
-              onClick={() => setIsCreateVereinigungOpen(true)}
-              className="px-4 py-2.5 text-xs font-bold text-slate-900 bg-amber-300 hover:bg-amber-400 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Neue News verfassen</span>
-            </button>
-          ) : null}
+          )}
         </div>
       </div>
 
@@ -566,24 +542,6 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
           <span>Mitgliederverwaltung</span>
           <span className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded-full ${activePraesidiumTab === 'mitglieder' ? 'bg-amber-950/60 text-amber-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
             {allUsers.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activePraesidiumTab === 'vereinigung'}
-          onClick={() => handleSelectPraesidiumTab('vereinigung')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
-            activePraesidiumTab === 'vereinigung'
-              ? 'bg-amber-800 text-white shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
-          }`}
-        >
-          <Flag className="w-4 h-4 shrink-0" />
-          <span>Vereinigung Baden Pfalz</span>
-          <span className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded-full ${activePraesidiumTab === 'vereinigung' ? 'bg-amber-950/60 text-amber-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
-            {vereinigungEntries.length}
           </span>
         </button>
       </div>
@@ -1202,25 +1160,6 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
             )}
           </div>
         </div>
-      )}
-
-      {/* Content Tab 3: Vereinigung Baden Pfalz (News & Änderungsmitteilung) */}
-      {activePraesidiumTab === 'vereinigung' && (
-        <VereinigungBadenPfalzSection
-          currentUser={currentUser}
-          users={allUsers}
-          clubs={clubs}
-          entries={vereinigungEntries}
-          additionalNotificationEmails={extraNotificationEmails}
-          activeSubTab={vereinigungSubTab}
-          onSubTabChange={setVereinigungSubTab}
-          onSaveEntry={(entry) => onSaveVereinigungEntry?.(entry)}
-          onDeleteEntry={(entryId) => onDeleteVereinigungEntry?.(entryId)}
-          onSendEmail={onSendEmail}
-          isCreateOpen={isCreateVereinigungOpen}
-          onOpenCreate={() => setIsCreateVereinigungOpen(true)}
-          onCloseCreate={() => setIsCreateVereinigungOpen(false)}
-        />
       )}
 
       {/* Modal: Verein anlegen */}

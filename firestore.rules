@@ -42,7 +42,7 @@ service cloud.firestore {
           'clubId', 'clubName', 'status', 'linkUrl',
           'attachmentName', 'attachmentSize', 'attachmentType', 'attachmentData',
           'officeRole', 'newHolderName', 'newHolderAddress', 'newHolderEmail', 'newHolderPhone',
-          'predecessorName', 'notifiedEmails',
+          'predecessorName', 'notifiedEmails', 'comments',
           'authorId', 'authorName', 'createdAt', 'updatedAt'
         ])
         && data.id is string && data.id.size() > 0 && data.id.size() <= 128
@@ -69,6 +69,7 @@ service cloud.firestore {
         && (!('newHolderPhone' in data) || (data.newHolderPhone is string && data.newHolderPhone.size() <= 80))
         && (!('predecessorName' in data) || (data.predecessorName is string && data.predecessorName.size() <= 160))
         && (!('notifiedEmails' in data) || (data.notifiedEmails is list && data.notifiedEmails.size() <= 30 && (data.notifiedEmails.size() == 0 || (data.notifiedEmails[0] is string && data.notifiedEmails[0].size() <= 160))))
+        && (!('comments' in data) || (data.comments is list && data.comments.size() <= 200 && (data.comments.size() == 0 || (data.comments[0] is map && data.comments[0].keys().hasAll(['id', 'authorId', 'authorName', 'content', 'createdAt']) && data.comments[0].id is string && data.comments[0].authorId is string && data.comments[0].authorName is string && data.comments[0].content is string && data.comments[0].content.size() > 0 && data.comments[0].content.size() <= 2000 && data.comments[0].createdAt is string))))
         && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
     }
 

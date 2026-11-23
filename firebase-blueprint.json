@@ -136,6 +136,7 @@
         "newHolderPhone": { "type": "string", "maxLength": 80 },
         "predecessorName": { "type": "string", "maxLength": 160 },
         "notifiedEmails": { "type": "array" },
+        "comments": { "type": "array" },
         "authorId": { "type": "string", "maxLength": 128 },
         "authorName": { "type": "string", "maxLength": 128 },
         "createdAt": { "type": "string", "maxLength": 64 },

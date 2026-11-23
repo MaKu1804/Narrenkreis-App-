@@ -81,6 +81,11 @@ export const PRAESIDIUM_ROLES: PraesidiumRole[] = [
 ];
 
 export const VEREINIGUNG_LOGO_URL = '/assets/aistudio/Screenshot_20261122-144216_2_99ba3510.jpg';
+export const VEREINIGUNG_CLUB_ID = 'vereinigung-baden-pfalz';
+
+export function isVereinigungExcursion(exc?: { organizerClubId?: string } | null): boolean {
+  return exc?.organizerClubId === VEREINIGUNG_CLUB_ID;
+}
 
 export type VereinigungRole =
   | 'Vereinigung Baden-Pfalz Vertretung 1'
@@ -240,6 +245,15 @@ export type VereinigungEntryType = 'news' | 'aenderungsmitteilung';
 
 export type AenderungStatus = 'Entwurf' | 'Gemeldet' | 'Bestätigt';
 
+export interface VereinigungComment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorClubId: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface VereinigungEntry {
   id: string;
   type: VereinigungEntryType;
@@ -264,6 +278,8 @@ export interface VereinigungEntry {
   newHolderPhone?: string;
   predecessorName?: string;
   notifiedEmails?: string[];
+  // Kommentare & Rückfragen von Mitgliedern
+  comments?: VereinigungComment[];
   authorId: string;
   authorName: string;
   createdAt: string;
