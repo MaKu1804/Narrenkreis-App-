@@ -35,6 +35,66 @@ service cloud.firestore {
       allow write: if isValidId(emailId);
     }
 
+    function isValidVereinigungEntry(data) {
+      return data.keys().hasAll(['id', 'type', 'title', 'content', 'date', 'authorId', 'authorName', 'createdAt'])
+        && data.keys().hasOnly([
+          'id', 'type', 'title', 'content', 'date', 'category',
+          'clubId', 'clubName', 'status', 'linkUrl',
+          'attachmentName', 'attachmentSize', 'attachmentType', 'attachmentData',
+          'officeRole', 'newHolderName', 'newHolderAddress', 'newHolderEmail', 'newHolderPhone',
+          'predecessorName', 'notifiedEmails',
+          'authorId', 'authorName', 'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.type in ['news', 'aenderungsmitteilung']
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 200
+        && data.content is string && data.content.size() > 0 && data.content.size() <= 5000
+        && data.date is string && data.date.size() > 0 && data.date.size() <= 32
+        && data.authorId is string && data.authorId.size() > 0 && data.authorId.size() <= 128
+        && data.authorName is string && data.authorName.size() > 0 && data.authorName.size() <= 128
+        && data.createdAt is string && data.createdAt.size() > 0 && data.createdAt.size() <= 64
+        && (!('category' in data) || (data.category is string && data.category.size() <= 80))
+        && (!('clubId' in data) || (data.clubId is string && data.clubId.size() <= 128))
+        && (!('clubName' in data) || (data.clubName is string && data.clubName.size() <= 160))
+        && (!('status' in data) || data.status in ['Entwurf', 'Gemeldet', 'Bestätigt'])
+        && (!('linkUrl' in data) || (data.linkUrl is string && data.linkUrl.size() <= 500))
+        && (!('attachmentName' in data) || (data.attachmentName is string && data.attachmentName.size() <= 260))
+        && (!('attachmentSize' in data) || (data.attachmentSize is int && data.attachmentSize >= 0 && data.attachmentSize <= 1048576))
+        && (!('attachmentType' in data) || (data.attachmentType is string && data.attachmentType.size() <= 180))
+        && (!('attachmentData' in data) || (data.attachmentData is string && data.attachmentData.size() <= 980000))
+        && (!('officeRole' in data) || (data.officeRole is string && data.officeRole.size() <= 120))
+        && (!('newHolderName' in data) || (data.newHolderName is string && data.newHolderName.size() <= 160))
+        && (!('newHolderAddress' in data) || (data.newHolderAddress is string && data.newHolderAddress.size() <= 240))
+        && (!('newHolderEmail' in data) || (data.newHolderEmail is string && data.newHolderEmail.size() <= 160))
+        && (!('newHolderPhone' in data) || (data.newHolderPhone is string && data.newHolderPhone.size() <= 80))
+        && (!('predecessorName' in data) || (data.predecessorName is string && data.predecessorName.size() <= 160))
+        && (!('notifiedEmails' in data) || (data.notifiedEmails is list && data.notifiedEmails.size() <= 30 && (data.notifiedEmails.size() == 0 || (data.notifiedEmails[0] is string && data.notifiedEmails[0].size() <= 160))))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    match /vereinigungEntries/{entryId} {
+      allow read: if true;
+      allow create, update: if isValidId(entryId) && isValidVereinigungEntry(request.resource.data);
+      allow delete: if isValidId(entryId);
+    }
+
+    function isValidVereinigungSettings(data) {
+      return data.keys().hasAll(['id', 'notificationEmails'])
+        && data.keys().hasOnly(['id', 'notificationEmails', 'updatedAt', 'updatedByName'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.notificationEmails is list
+        && data.notificationEmails.size() <= 30
+        && (data.notificationEmails.size() == 0 || (data.notificationEmails[0] is string && data.notificationEmails[0].size() <= 160))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64))
+        && (!('updatedByName' in data) || (data.updatedByName is string && data.updatedByName.size() <= 128));
+    }
+
+    match /vereinigungSettings/{settingId} {
+      allow read: if true;
+      allow create, update: if isValidId(settingId) && isValidVereinigungSettings(request.resource.data);
+      allow delete: if isValidId(settingId);
+    }
+
     match /system/{systemId} {
       allow read, write: if isValidId(systemId);
     }

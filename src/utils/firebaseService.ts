@@ -14,7 +14,9 @@ import {
   MeetingProtocol, 
   ForumPost, 
   Excursion, 
-  SentEmail 
+  SentEmail,
+  VereinigungEntry,
+  VereinigungSettings
 } from './clubLogic';
 import { 
   INITIAL_CLUBS, 
@@ -142,15 +144,19 @@ export async function syncAllFromFirestore(): Promise<{
   forumPosts: ForumPost[];
   excursions: Excursion[];
   sentEmails: SentEmail[];
+  vereinigungEntries: VereinigungEntry[];
+  vereinigungSettings: VereinigungSettings;
 }> {
   try {
-    const [uSnap, cSnap, pSnap, fSnap, eSnap, mSnap] = await Promise.all([
+    const [uSnap, cSnap, pSnap, fSnap, eSnap, mSnap, vSnap, vsSnap] = await Promise.all([
       getDocs(collection(db, 'users')),
       getDocs(collection(db, 'clubs')),
       getDocs(collection(db, 'protocols')),
       getDocs(collection(db, 'forumPosts')),
       getDocs(collection(db, 'excursions')),
-      getDocs(collection(db, 'sentEmails'))
+      getDocs(collection(db, 'sentEmails')),
+      getDocs(collection(db, 'vereinigungEntries')),
+      getDoc(doc(db, 'vereinigungSettings', 'vereinigung_config'))
     ]);
 
     const users: UserProfile[] = [];
@@ -185,7 +191,15 @@ export async function syncAllFromFirestore(): Promise<{
     mSnap.forEach(d => sentEmails.push(d.data() as SentEmail));
     sentEmails.sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
 
-    return { users, clubs, protocols, forumPosts, excursions, sentEmails };
+    const vereinigungEntries: VereinigungEntry[] = [];
+    vSnap.forEach(d => vereinigungEntries.push(d.data() as VereinigungEntry));
+    vereinigungEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const vereinigungSettings: VereinigungSettings = vsSnap.exists()
+      ? (vsSnap.data() as VereinigungSettings)
+      : { id: 'vereinigung_config', notificationEmails: [] };
+
+    return { users, clubs, protocols, forumPosts, excursions, sentEmails, vereinigungEntries, vereinigungSettings };
   } catch (err) {
     console.error('[Firestore syncAllFromFirestore Fehler]:', err);
     throw err;
@@ -280,6 +294,31 @@ export function subscribeToSentEmails(onUpdate: (emails: SentEmail[]) => void) {
     onUpdate(list);
   }, (err) => {
     console.error('[Firestore Emails Snapshot Fehler]:', err);
+  });
+}
+
+export function subscribeToVereinigungEntries(onUpdate: (entries: VereinigungEntry[]) => void) {
+  return onSnapshot(collection(db, 'vereinigungEntries'), (snapshot) => {
+    const list: VereinigungEntry[] = [];
+    snapshot.forEach(docSnap => {
+      list.push(docSnap.data() as VereinigungEntry);
+    });
+    list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    onUpdate(list);
+  }, (err) => {
+    handleFirestoreError(err, OperationType.GET, 'vereinigungEntries');
+  });
+}
+
+export function subscribeToVereinigungSettings(onUpdate: (settings: VereinigungSettings) => void) {
+  return onSnapshot(doc(db, 'vereinigungSettings', 'vereinigung_config'), (snapshot) => {
+    if (snapshot.exists()) {
+      onUpdate(snapshot.data() as VereinigungSettings);
+    } else {
+      onUpdate({ id: 'vereinigung_config', notificationEmails: [] });
+    }
+  }, (err) => {
+    handleFirestoreError(err, OperationType.GET, 'vereinigungSettings/vereinigung_config');
   });
 }
 
@@ -427,5 +466,31 @@ export async function dbDeleteSentEmail(emailId: string): Promise<void> {
     await deleteDoc(doc(db, 'sentEmails', emailId));
   } catch (err) {
     console.error('[Firestore dbDeleteSentEmail Fehler]:', err);
+  }
+}
+
+export async function dbSaveVereinigungEntry(entry: VereinigungEntry): Promise<void> {
+  try {
+    const clean = sanitizeForFirestore(entry);
+    await setDoc(doc(db, 'vereinigungEntries', entry.id), clean, { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `vereinigungEntries/${entry.id}`);
+  }
+}
+
+export async function dbDeleteVereinigungEntry(entryId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'vereinigungEntries', entryId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `vereinigungEntries/${entryId}`);
+  }
+}
+
+export async function dbSaveVereinigungSettings(settings: VereinigungSettings): Promise<void> {
+  try {
+    const clean = sanitizeForFirestore(settings);
+    await setDoc(doc(db, 'vereinigungSettings', 'vereinigung_config'), clean, { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'vereinigungSettings/vereinigung_config');
   }
 }

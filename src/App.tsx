@@ -16,7 +16,12 @@ import {
   SentEmail,
   MeetingProtocol,
   PraesidiumRole,
+  VereinigungRole,
+  VereinigungEntry,
+  VereinigungSettings,
+  VEREINIGUNG_LOGO_URL,
   isPraesidiumMember,
+  canManageVereinigungNews,
   clearMailboxForUser,
   deleteSingleEmail
 } from './utils/clubLogic';
@@ -26,7 +31,8 @@ import { CalendarView } from './components/CalendarView';
 import { ClubDirectory } from './components/ClubDirectory';
 import { ProtocolsView } from './components/ProtocolsView';
 import { ProfileView, ProfileSubTab } from './components/ProfileView';
-import { PraesidiumView } from './components/PraesidiumView';
+import { PraesidiumView, PraesidiumTab } from './components/PraesidiumView';
+import { VereinigungBadenPfalzSection, VereinigungSubTab } from './components/VereinigungBadenPfalzSection';
 import { AuthModal } from './components/AuthModal';
 import { LegalModal } from './components/LegalModal';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
@@ -41,6 +47,8 @@ import {
   subscribeToForum, 
   subscribeToExcursions, 
   subscribeToSentEmails,
+  subscribeToVereinigungEntries,
+  subscribeToVereinigungSettings,
   dbSaveUser,
   dbDeleteUser,
   dbSaveClub,
@@ -53,6 +61,9 @@ import {
   dbDeleteExcursion,
   dbSaveSentEmail,
   dbDeleteSentEmail,
+  dbSaveVereinigungEntry,
+  dbDeleteVereinigungEntry,
+  dbSaveVereinigungSettings,
   syncAllFromFirestore
 } from './utils/firebaseService';
 
@@ -165,6 +176,24 @@ export default function App() {
     }
   });
 
+  const [vereinigungEntries, setVereinigungEntries] = useState<VereinigungEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}vereinigungEntries`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [vereinigungSettings, setVereinigungSettings] = useState<VereinigungSettings>(() => {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}vereinigungSettings`);
+      return saved ? JSON.parse(saved) : { id: 'vereinigung_config', notificationEmails: [] };
+    } catch {
+      return { id: 'vereinigung_config', notificationEmails: [] };
+    }
+  });
+
   // Authentication Gate State - Login as Landing Screen with Auto-Remember
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     try {
@@ -175,9 +204,12 @@ export default function App() {
     }
   });
 
-  // Tabs in order: FORUM, Kalender, Vereine, Profil (incl. Messenger), Präsidium
+  // Tabs in order: FORUM, Kalender, Vereine, Protokolle, Vereinigung, Profil, Präsidium
   const [activeTab, setActiveTab] = useState<TabType>('forum');
   const [profileSubTab, setProfileSubTab] = useState<ProfileSubTab>('profile');
+  const [praesidiumSubTab, setPraesidiumSubTab] = useState<PraesidiumTab>('vereine');
+  const [vereinigungSubTab, setVereinigungSubTab] = useState<VereinigungSubTab>('news');
+  const [isVereinigungCreateOpen, setIsVereinigungCreateOpen] = useState(false);
   const [messengerTargetUserId, setMessengerTargetUserId] = useState<string | null>(null);
   const [isCreateEventModalOpen, setIsCreateEventModalOpen] = useState(false);
   const [createEventInitialDate, setCreateEventInitialDate] = useState<string | undefined>(undefined);
@@ -311,6 +343,14 @@ export default function App() {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}protocols_initialized`, 'true');
   }, [protocols]);
 
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}vereinigungEntries`, JSON.stringify(vereinigungEntries));
+  }, [vereinigungEntries]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}vereinigungSettings`, JSON.stringify(vereinigungSettings));
+  }, [vereinigungSettings]);
+
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleManualSync = useCallback(async () => {
@@ -342,6 +382,8 @@ export default function App() {
       if (fresh.sentEmails.length > 0) {
         setSentEmails(fresh.sentEmails);
       }
+      setVereinigungEntries(fresh.vereinigungEntries);
+      setVereinigungSettings(fresh.vereinigungSettings);
       console.log(`[Cloud Sync] Erfolgreich synchronisiert: ${fresh.users.length} Benutzer, ${fresh.clubs.length} Vereine.`);
     } catch (err) {
       console.error('[Cloud Sync Fehler]:', err);
@@ -384,6 +426,12 @@ export default function App() {
     const unsubEmails = subscribeToSentEmails((freshEmails) => {
       setSentEmails(freshEmails);
     });
+    const unsubVereinigung = subscribeToVereinigungEntries((freshEntries) => {
+      setVereinigungEntries(freshEntries);
+    });
+    const unsubVereinigungSettings = subscribeToVereinigungSettings((freshSettings) => {
+      setVereinigungSettings(freshSettings);
+    });
 
     return () => {
       unsubUsers();
@@ -392,6 +440,8 @@ export default function App() {
       unsubForum();
       unsubExcursions();
       unsubEmails();
+      unsubVereinigung();
+      unsubVereinigungSettings();
     };
   }, [handleManualSync]);
 
@@ -514,6 +564,22 @@ export default function App() {
       if (target) dbSaveUser(target);
       return next;
     });
+  };
+
+  const handleUpdateUserVereinigungRole = (userId: string, newRole: VereinigungRole | null) => {
+    if (!isPraesidium) return;
+    setUsers(prev => {
+      const next = prev.map(u => u.id === userId ? { ...u, vereinigungRole: newRole } : u);
+      const target = next.find(u => u.id === userId);
+      if (target) dbSaveUser(target);
+      return next;
+    });
+  };
+
+  const handleSaveVereinigungSettings = (settings: VereinigungSettings) => {
+    if (!isPraesidium) return;
+    setVereinigungSettings(settings);
+    dbSaveVereinigungSettings(settings);
   };
 
   // Messenger & Mailbox handlers
@@ -757,6 +823,45 @@ export default function App() {
     dbDeleteProtocol(protocolId);
   };
 
+  // Vereinigung Baden Pfalz handlers
+  const handleSaveVereinigungEntry = (entry: VereinigungEntry) => {
+    const existing = vereinigungEntries.find(e => e.id === entry.id);
+    if (entry.type === 'news') {
+      if (!canManageVereinigungNews(currentUser)) return;
+    } else {
+      if (existing && !isPraesidium && existing.authorId !== currentUser.id) {
+        return;
+      }
+    }
+
+    setVereinigungEntries(prev => {
+      const exists = prev.some(e => e.id === entry.id);
+      const next = exists
+        ? prev.map(e => e.id === entry.id ? entry : e)
+        : [entry, ...prev];
+      return [...next].sort(
+        (a, b) =>
+          new Date(b.date).getTime() - new Date(a.date).getTime() ||
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    });
+    dbSaveVereinigungEntry(entry);
+  };
+
+  const handleDeleteVereinigungEntry = (entryId: string) => {
+    const target = vereinigungEntries.find(e => e.id === entryId);
+    if (!target) return;
+
+    if (target.type === 'news') {
+      if (!canManageVereinigungNews(currentUser)) return;
+    } else {
+      if (!isPraesidium && target.authorId !== currentUser.id) return;
+    }
+
+    setVereinigungEntries(prev => prev.filter(e => e.id !== entryId));
+    dbDeleteVereinigungEntry(entryId);
+  };
+
 
   // If not logged in, show the Login & Registration Portal as the exclusive Landing Screen
   if (!isLoggedIn) {
@@ -911,18 +1016,30 @@ export default function App() {
     );
   }
 
+  const isVereinigungWatermark =
+    activeTab === 'vereinigung' ||
+    (isPraesidium && activeTab === 'praesidium' && praesidiumSubTab === 'vereinigung');
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans relative overflow-x-hidden w-full max-w-full transition-colors duration-200">
-      {/* Heraldic Watermark Background on every page (Screenshot 104014) - Kräftiger dargestellt */}
+      {/* Heraldic Watermark Background: Vereinigung Baden Pfalz Wimpel nur beim entsprechenden Reiter */}
       <div 
         aria-hidden="true"
         className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden select-none max-w-full"
       >
-        <img
-          src="/assets/aistudio/Screenshot_20261021-104014_46b428b6.png"
-          alt=""
-          className="w-[90vw] max-w-[680px] max-h-[85vh] object-contain opacity-[0.24] dark:opacity-[0.10] filter contrast-125 saturate-110 drop-shadow-sm pointer-events-none"
-        />
+        {isVereinigungWatermark ? (
+          <img
+            src={VEREINIGUNG_LOGO_URL}
+            alt=""
+            className="w-[86vw] max-w-[540px] max-h-[80vh] object-contain opacity-[0.22] dark:opacity-[0.14] mix-blend-multiply dark:mix-blend-normal rounded-3xl filter contrast-110 drop-shadow-sm pointer-events-none"
+          />
+        ) : (
+          <img
+            src="/assets/aistudio/Screenshot_20261021-104014_46b428b6.png"
+            alt=""
+            className="w-[90vw] max-w-[680px] max-h-[85vh] object-contain opacity-[0.24] dark:opacity-[0.10] filter contrast-125 saturate-110 drop-shadow-sm pointer-events-none"
+          />
+        )}
       </div>
 
       {/* Realtime Offline Notice */}
@@ -1026,7 +1143,26 @@ export default function App() {
           />
         )}
 
-        {/* Tab 5: PROFIL (Mit Unter-Reitern: Mein Profil & E-Mail Messenger) */}
+        {/* Tab 5: VEREINIGUNG BADEN PFALZ (Für alle Vereine · Änderungsportal & Verbands-News) */}
+        {activeTab === 'vereinigung' && (
+          <VereinigungBadenPfalzSection
+            currentUser={currentUser}
+            users={users}
+            clubs={clubs}
+            entries={vereinigungEntries}
+            additionalNotificationEmails={vereinigungSettings.notificationEmails}
+            activeSubTab={vereinigungSubTab}
+            onSubTabChange={setVereinigungSubTab}
+            onSaveEntry={handleSaveVereinigungEntry}
+            onDeleteEntry={handleDeleteVereinigungEntry}
+            onSendEmail={handleSendEmail}
+            isCreateOpen={isVereinigungCreateOpen}
+            onOpenCreate={() => setIsVereinigungCreateOpen(true)}
+            onCloseCreate={() => setIsVereinigungCreateOpen(false)}
+          />
+        )}
+
+        {/* Tab 6: PROFIL (Mit Unter-Reitern: Mein Profil & E-Mail Messenger) */}
         {activeTab === 'profile' && (
           <ProfileView
             currentUser={currentUser}
@@ -1044,7 +1180,7 @@ export default function App() {
           />
         )}
 
-        {/* Tab 6: PRÄSIDIUM (Ausschließlich für gewählte Präsidiumsmitglieder) */}
+        {/* Tab 7: PRÄSIDIUM (Ausschließlich für gewählte Präsidiumsmitglieder) */}
         {activeTab === 'praesidium' && isPraesidium && (
           <PraesidiumView
             currentUser={currentUser}
@@ -1054,10 +1190,19 @@ export default function App() {
             onEditClub={handleEditClub}
             onDeleteClub={handleDeleteClub}
             onUpdateUserRole={handleUpdateUserRole}
+            onUpdateUserVereinigungRole={handleUpdateUserVereinigungRole}
             onUpdateClubLogo={handleUpdateClubLogo}
             onUpdateUser={handleUpdateUser}
             onDeleteUser={handleDeleteUser}
             onCreateUser={handleCreateUser}
+            activeSubTab={praesidiumSubTab}
+            onSubTabChange={setPraesidiumSubTab}
+            vereinigungEntries={vereinigungEntries}
+            onSaveVereinigungEntry={handleSaveVereinigungEntry}
+            onDeleteVereinigungEntry={handleDeleteVereinigungEntry}
+            vereinigungSettings={vereinigungSettings}
+            onSaveVereinigungSettings={handleSaveVereinigungSettings}
+            onSendEmail={handleSendEmail}
           />
         )}
       </main>

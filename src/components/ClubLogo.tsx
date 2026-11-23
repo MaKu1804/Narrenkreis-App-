@@ -1,6 +1,19 @@
 import React from 'react';
 import { Shield } from 'lucide-react';
-import { Club } from '../utils/clubLogic';
+import {
+  Club,
+  UserProfile,
+  VEREINIGUNG_LOGO_URL,
+  isVereinigungNewsManager,
+} from '../utils/clubLogic';
+
+const LOGO_SIZE_CLASSES = {
+  xs: 'w-5 h-5',
+  sm: 'w-7 h-7',
+  md: 'w-9 h-9',
+  lg: 'w-12 h-12',
+  xl: 'w-16 h-16',
+} as const;
 
 interface ClubLogoProps {
   club?: Club | null;
@@ -28,18 +41,10 @@ export const ClubLogo: React.FC<ClubLogoProps> = ({
     );
   }
 
-  const sizeClasses = {
-    xs: 'w-5 h-5',
-    sm: 'w-7 h-7',
-    md: 'w-9 h-9',
-    lg: 'w-12 h-12',
-    xl: 'w-16 h-16'
-  };
-
   return (
     <div className={`inline-flex items-center gap-2.5 ${className}`}>
       <div 
-        className={`${sizeClasses[size]} shrink-0 rounded-full overflow-hidden shadow-xs border border-slate-200/80 flex items-center justify-center bg-white`}
+        className={`${LOGO_SIZE_CLASSES[size]} shrink-0 rounded-full overflow-hidden shadow-xs border border-slate-200/80 flex items-center justify-center bg-white`}
         title={`${club.name} (${club.category})`}
       >
         {club.logo ? (
@@ -84,6 +89,59 @@ export const ClubLogo: React.FC<ClubLogoProps> = ({
             </span>
           )}
         </div>
+      )}
+    </div>
+  );
+};
+
+interface VereinigungBadgeLogoProps {
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  title?: string;
+  className?: string;
+}
+
+export const VereinigungBadgeLogo: React.FC<VereinigungBadgeLogoProps> = ({
+  size = 'md',
+  title = 'Vereinigung Badisch-Pfälzischer Karnevalvereine e.V.',
+  className = '',
+}) => {
+  return (
+    <div
+      className={`${LOGO_SIZE_CLASSES[size]} shrink-0 rounded-full overflow-hidden shadow-xs border border-amber-400/90 flex items-center justify-center bg-white ${className}`}
+      title={title}
+    >
+      <img
+        src={VEREINIGUNG_LOGO_URL}
+        alt="Vereinigung Badisch-Pfälzischer Karnevalvereine e.V."
+        className="w-full h-full object-cover"
+      />
+    </div>
+  );
+};
+
+interface MemberClubLogosProps {
+  club?: Club | null;
+  user?: Partial<UserProfile> | null;
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  className?: string;
+}
+
+export const MemberClubLogos: React.FC<MemberClubLogosProps> = ({
+  club,
+  user,
+  size = 'md',
+  className = '',
+}) => {
+  const showVereinigung = isVereinigungNewsManager(user as UserProfile | null | undefined);
+
+  return (
+    <div className={`inline-flex items-center gap-1 shrink-0 ${className}`}>
+      <ClubLogo club={club} size={size} />
+      {showVereinigung && (
+        <VereinigungBadgeLogo
+          size={size}
+          title={`${user?.vereinigungRole || 'Vereinigung Baden-Pfalz'} · News-Verwaltung`}
+        />
       )}
     </div>
   );

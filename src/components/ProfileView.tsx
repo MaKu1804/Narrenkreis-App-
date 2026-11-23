@@ -14,7 +14,8 @@ import {
   Download,
   Camera,
   CheckCheck,
-  Trash2
+  Trash2,
+  Flag
 } from 'lucide-react';
 import { 
   UserProfile, 
@@ -22,9 +23,10 @@ import {
   SentEmail,
   validateProfile, 
   isPraesidiumMember,
+  isVereinigungNewsManager,
   getEmailsForUser 
 } from '../utils/clubLogic';
-import { ClubLogo } from './ClubLogo';
+import { ClubLogo, MemberClubLogos } from './ClubLogo';
 import { ClubSelector } from './ClubSelector';
 import { MessengerView } from './MessengerView';
 import { UserAvatar } from './UserAvatar';
@@ -200,6 +202,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   {currentUser.praesidiumRole}
                 </span>
               )}
+              {isVereinigungNewsManager(currentUser) && (
+                <span className="text-[11px] font-bold text-amber-950 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1" title="Darf ausschließlich News der Vereinigung Baden-Pfalz verwalten (keine Admin-Rechte)">
+                  <Flag className="w-3 h-3 text-amber-700" />
+                  {currentUser.vereinigungRole}
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
               {currentUser.positionInClub || 'Mitglied'} · {currentClub?.name || 'Kein Verein zugewiesen'}
@@ -292,7 +300,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             {/* Assigned Club Info Box */}
             <div className="p-4 bg-sky-50/70 border border-sky-100 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <ClubLogo club={currentClub} size="lg" />
+                <MemberClubLogos club={currentClub} user={currentUser} size="lg" />
                 <div>
                   <span className="text-[10px] font-bold text-sky-800 uppercase tracking-wider block">
                     Zugeordneter Verein im Narrenkreis

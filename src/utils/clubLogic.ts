@@ -80,6 +80,17 @@ export const PRAESIDIUM_ROLES: PraesidiumRole[] = [
   'Narrenkreis Schriftführerin'
 ];
 
+export const VEREINIGUNG_LOGO_URL = '/assets/aistudio/Screenshot_20261122-144216_2_99ba3510.jpg';
+
+export type VereinigungRole =
+  | 'Vereinigung Baden-Pfalz Vertretung 1'
+  | 'Vereinigung Baden-Pfalz Vertretung 2';
+
+export const VEREINIGUNG_ROLES: VereinigungRole[] = [
+  'Vereinigung Baden-Pfalz Vertretung 1',
+  'Vereinigung Baden-Pfalz Vertretung 2'
+];
+
 export interface UserProfile {
   id: string;
   name: string; // Pflichtfeld
@@ -92,6 +103,7 @@ export interface UserProfile {
   phone?: string; // Festnetz Telefon - freiwillig
   landline?: string; // Alternativer Alias für Festnetz
   praesidiumRole?: PraesidiumRole | null;
+  vereinigungRole?: VereinigungRole | null; // Nicht-Admin Sonderrolle für News der Vereinigung Baden-Pfalz
   isPraesident?: boolean; // Häkchen: Vereins-Präsident / Teil des Präsidenten-Verteilers
   isZugmarschall?: boolean; // Häkchen: Zugmarschall / Teil des Zugmarschall-Verteilers
   avatar: string;
@@ -224,14 +236,70 @@ export interface SentEmail {
   sentAt: string;
 }
 
+export type VereinigungEntryType = 'news' | 'aenderungsmitteilung';
+
+export type AenderungStatus = 'Entwurf' | 'Gemeldet' | 'Bestätigt';
+
+export interface VereinigungEntry {
+  id: string;
+  type: VereinigungEntryType;
+  title: string;
+  content: string;
+  date: string; // YYYY-MM-DD
+  category?: string;
+  clubId?: string;
+  clubName?: string;
+  status?: AenderungStatus;
+  linkUrl?: string;
+  // Optionaler Datei-Anhang für News (z.B. Word, PDF per Drag & Drop)
+  attachmentName?: string;
+  attachmentSize?: number;
+  attachmentType?: string;
+  attachmentData?: string;
+  // Strukturierte Felder für Änderungsmitteilungen (Ämterneubesetzung)
+  officeRole?: string;
+  newHolderName?: string;
+  newHolderAddress?: string;
+  newHolderEmail?: string;
+  newHolderPhone?: string;
+  predecessorName?: string;
+  notifiedEmails?: string[];
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface VereinigungSettings {
+  id: 'vereinigung_config';
+  notificationEmails: string[];
+  updatedAt?: string;
+  updatedByName?: string;
+}
+
 // Pure business logic functions
 
 /**
- * Checks if a user has an active executive role in the Narrenkreis Präsidium
+ * Checks if a user has an active executive role in the Narrenkreis Präsidium (Admin)
  */
 export function isPraesidiumMember(user?: UserProfile | null): boolean {
   if (!user || !user.praesidiumRole) return false;
   return PRAESIDIUM_ROLES.includes(user.praesidiumRole as PraesidiumRole);
+}
+
+/**
+ * Checks if a user holds one of the 2 non-admin Vereinigung Baden-Pfalz News roles
+ */
+export function isVereinigungNewsManager(user?: UserProfile | null): boolean {
+  if (!user || !user.vereinigungRole) return false;
+  return VEREINIGUNG_ROLES.includes(user.vereinigungRole as VereinigungRole);
+}
+
+/**
+ * Checks if a user is allowed to create/edit/delete Vereinigung News (Präsidium Admins OR the 2 Vereinigung News roles)
+ */
+export function canManageVereinigungNews(user?: UserProfile | null): boolean {
+  return isPraesidiumMember(user) || isVereinigungNewsManager(user);
 }
 
 /**

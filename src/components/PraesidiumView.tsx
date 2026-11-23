@@ -26,19 +26,29 @@ import {
   Square,
   MessageCircle,
   PhoneCall,
-  Globe
+  Globe,
+  Flag
 } from 'lucide-react';
 import { getWhatsAppUrl, getTelUrl } from '../utils/phoneUtils';
 import { 
   UserProfile, 
   Club, 
+  SentEmail,
   PRAESIDIUM_ROLES, 
   PraesidiumRole, 
+  VEREINIGUNG_ROLES,
+  VereinigungRole,
+  VereinigungEntry,
+  VereinigungSettings,
   isPraesidiumMember,
+  isVereinigungNewsManager,
   resolveClubWebsite
 } from '../utils/clubLogic';
-import { ClubLogo } from './ClubLogo';
+import { ClubLogo, MemberClubLogos, VereinigungBadgeLogo } from './ClubLogo';
 import { UserAvatar } from './UserAvatar';
+import { VereinigungBadenPfalzSection, VereinigungSubTab } from './VereinigungBadenPfalzSection';
+
+export type PraesidiumTab = 'vereine' | 'mitglieder' | 'vereinigung';
 
 interface PraesidiumViewProps {
   currentUser: UserProfile;
@@ -48,11 +58,20 @@ interface PraesidiumViewProps {
   onEditClub?: (clubId: string, updated: Partial<Club>) => void;
   onDeleteClub: (clubId: string) => void;
   onUpdateUserRole: (userId: string, newRole: PraesidiumRole | null) => void;
+  onUpdateUserVereinigungRole?: (userId: string, newRole: VereinigungRole | null) => void;
   onSwitchUser?: (userId: string) => void;
   onUpdateClubLogo?: (clubId: string, newLogo: string) => void;
   onUpdateUser?: (updated: UserProfile) => void;
   onDeleteUser?: (userId: string) => void;
   onCreateUser?: (newUser: UserProfile) => void;
+  activeSubTab?: PraesidiumTab;
+  onSubTabChange?: (tab: PraesidiumTab) => void;
+  vereinigungEntries?: VereinigungEntry[];
+  onSaveVereinigungEntry?: (entry: VereinigungEntry) => void;
+  onDeleteVereinigungEntry?: (entryId: string) => void;
+  vereinigungSettings?: VereinigungSettings;
+  onSaveVereinigungSettings?: (settings: VereinigungSettings) => void;
+  onSendEmail?: (email: SentEmail) => void;
 }
 
 export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
@@ -63,16 +82,38 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
   onEditClub,
   onDeleteClub,
   onUpdateUserRole,
+  onUpdateUserVereinigungRole,
   onSwitchUser,
   onUpdateClubLogo,
   onUpdateUser,
   onDeleteUser,
-  onCreateUser
+  onCreateUser,
+  activeSubTab,
+  onSubTabChange,
+  vereinigungEntries = [],
+  onSaveVereinigungEntry,
+  onDeleteVereinigungEntry,
+  vereinigungSettings,
+  onSaveVereinigungSettings,
+  onSendEmail
 }) => {
   const isAuthorized = isPraesidiumMember(currentUser);
 
-  // Sub-tab: 'vereine' (Vereine & Präsidiumsrollen) or 'mitglieder' (Mitgliederverwaltung)
-  const [activePraesidiumTab, setActivePraesidiumTab] = useState<'vereine' | 'mitglieder'>('vereine');
+  // Sub-tab: 'vereine', 'mitglieder', or 'vereinigung' (Vereinigung Baden Pfalz)
+  const [internalPraesidiumTab, setInternalPraesidiumTab] = useState<PraesidiumTab>(activeSubTab || 'vereine');
+  const activePraesidiumTab = activeSubTab ?? internalPraesidiumTab;
+  const handleSelectPraesidiumTab = (tab: PraesidiumTab) => {
+    setInternalPraesidiumTab(tab);
+    onSubTabChange?.(tab);
+  };
+
+  // Nested sub-tabs & create modal state for Vereinigung Baden Pfalz
+  const [vereinigungSubTab, setVereinigungSubTab] = useState<VereinigungSubTab>('news');
+  const [isCreateVereinigungOpen, setIsCreateVereinigungOpen] = useState(false);
+
+  // Additional notification emails for Änderungsmitteilungen
+  const [extraEmailInput, setExtraEmailInput] = useState('');
+  const [extraEmailError, setExtraEmailError] = useState<string | null>(null);
 
   // Member management state
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
@@ -89,6 +130,7 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
   const [editUserPosition, setEditUserPosition] = useState('');
   const [editUserAddress, setEditUserAddress] = useState('');
   const [editUserPraesidiumRole, setEditUserPraesidiumRole] = useState<PraesidiumRole | 'none'>('none');
+  const [editUserVereinigungRole, setEditUserVereinigungRole] = useState<VereinigungRole | 'none'>('none');
   const [editUserIsPraesident, setEditUserIsPraesident] = useState(false);
   const [editUserIsZugmarschall, setEditUserIsZugmarschall] = useState(false);
 
@@ -105,6 +147,7 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
   const [newUserPosition, setNewUserPosition] = useState('Ausschuss / Mitglied');
   const [newUserAddress, setNewUserAddress] = useState('');
   const [newUserPraesidiumRole, setNewUserPraesidiumRole] = useState<PraesidiumRole | 'none'>('none');
+  const [newUserVereinigungRole, setNewUserVereinigungRole] = useState<VereinigungRole | 'none'>('none');
   const [newUserIsPraesident, setNewUserIsPraesident] = useState(false);
   const [newUserIsZugmarschall, setNewUserIsZugmarschall] = useState(false);
   const [newUserPassword, setNewUserPassword] = useState('geheim123');
@@ -188,6 +231,7 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
     setEditUserPosition(user.positionInClub || '');
     setEditUserAddress(user.address || '');
     setEditUserPraesidiumRole(user.praesidiumRole || 'none');
+    setEditUserVereinigungRole(user.vereinigungRole || 'none');
     setEditUserIsPraesident(Boolean(user.isPraesident));
     setEditUserIsZugmarschall(Boolean(user.isZugmarschall));
   };
@@ -197,6 +241,7 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
     if (!editingUser || !editUserName.trim() || !editUserEmail.trim() || !editUserMobile.trim()) return;
 
     const newRole = editUserPraesidiumRole === 'none' ? null : editUserPraesidiumRole;
+    const newVereinigungRole = editUserVereinigungRole === 'none' ? null : editUserVereinigungRole;
 
     const updated: UserProfile = {
       ...editingUser,
@@ -208,6 +253,7 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
       positionInClub: editUserPosition.trim(),
       address: editUserAddress.trim(),
       praesidiumRole: newRole,
+      vereinigungRole: newVereinigungRole,
       isPraesident: editUserIsPraesident,
       isZugmarschall: editUserIsZugmarschall,
       avatar: editUserName.trim().split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
@@ -218,6 +264,9 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
     }
     if (newRole !== editingUser.praesidiumRole) {
       onUpdateUserRole(editingUser.id, newRole);
+    }
+    if (newVereinigungRole !== editingUser.vereinigungRole && onUpdateUserVereinigungRole) {
+      onUpdateUserVereinigungRole(editingUser.id, newVereinigungRole);
     }
 
     setEditingUser(null);
@@ -236,6 +285,7 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
     if (!newUserName.trim() || !newUserEmail.trim() || !newUserMobile.trim()) return;
 
     const newRole = newUserPraesidiumRole === 'none' ? null : newUserPraesidiumRole;
+    const newVereinigungRole = newUserVereinigungRole === 'none' ? null : newUserVereinigungRole;
     const initials = newUserName.trim().split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2);
 
     const created: UserProfile = {
@@ -248,6 +298,7 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
       positionInClub: newUserPosition.trim(),
       address: newUserAddress.trim(),
       praesidiumRole: newRole,
+      vereinigungRole: newVereinigungRole,
       isPraesident: newUserIsPraesident,
       isZugmarschall: newUserIsZugmarschall,
       avatar: initials,
@@ -263,6 +314,9 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
     if (newRole) {
       onUpdateUserRole(created.id, newRole);
     }
+    if (newVereinigungRole && onUpdateUserVereinigungRole) {
+      onUpdateUserVereinigungRole(created.id, newVereinigungRole);
+    }
 
     setIsAddUserOpen(false);
     setNewUserName('');
@@ -271,8 +325,47 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
     setNewUserPhone('');
     setNewUserAddress('');
     setNewUserPraesidiumRole('none');
+    setNewUserVereinigungRole('none');
     setNewUserIsPraesident(false);
     setNewUserIsZugmarschall(false);
+  };
+
+  const extraNotificationEmails = vereinigungSettings?.notificationEmails || [];
+
+  const handleAddExtraEmail = (e: React.FormEvent) => {
+    e.preventDefault();
+    setExtraEmailError(null);
+    const normalized = extraEmailInput.trim().toLowerCase();
+    if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+      setExtraEmailError('Bitte eine gültige E-Mail-Adresse eingeben.');
+      return;
+    }
+    if (extraNotificationEmails.some((em) => em.toLowerCase() === normalized)) {
+      setExtraEmailError('Diese E-Mail-Adresse ist bereits hinterlegt.');
+      return;
+    }
+    if (extraNotificationEmails.length >= 30) {
+      setExtraEmailError('Maximal 30 zusätzliche E-Mail-Adressen erlaubt.');
+      return;
+    }
+    onSaveVereinigungSettings?.({
+      id: 'vereinigung_config',
+      notificationEmails: [...extraNotificationEmails, normalized],
+      updatedAt: new Date().toISOString(),
+      updatedByName: currentUser.name,
+    });
+    setExtraEmailInput('');
+  };
+
+  const handleRemoveExtraEmail = (emailToRemove: string) => {
+    onSaveVereinigungSettings?.({
+      id: 'vereinigung_config',
+      notificationEmails: extraNotificationEmails.filter(
+        (em) => em.toLowerCase() !== emailToRemove.toLowerCase()
+      ),
+      updatedAt: new Date().toISOString(),
+      updatedByName: currentUser.name,
+    });
   };
 
   const filteredMembers = allUsers.filter((u) => {
@@ -280,13 +373,15 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
       u.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) ||
       u.email.toLowerCase().includes(memberSearchQuery.toLowerCase()) ||
       (u.mobile || '').toLowerCase().includes(memberSearchQuery.toLowerCase()) ||
-      (u.positionInClub || '').toLowerCase().includes(memberSearchQuery.toLowerCase());
+      (u.positionInClub || '').toLowerCase().includes(memberSearchQuery.toLowerCase()) ||
+      (u.vereinigungRole || '').toLowerCase().includes(memberSearchQuery.toLowerCase());
 
     const matchesClub = memberClubFilter === 'Alle' || u.clubId === memberClubFilter;
 
     const matchesRole = memberRoleFilter === 'Alle' ||
       (memberRoleFilter === 'praesidium' && Boolean(u.praesidiumRole)) ||
-      (memberRoleFilter === 'mitglieder' && !u.praesidiumRole);
+      (memberRoleFilter === 'vereinigung' && isVereinigungNewsManager(u)) ||
+      (memberRoleFilter === 'mitglieder' && !u.praesidiumRole && !isVereinigungNewsManager(u));
 
     return matchesSearch && matchesClub && matchesRole;
   });
@@ -403,55 +498,92 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {activePraesidiumTab === 'vereine' ? (
             <button
+              type="button"
               onClick={() => setIsAddClubOpen(true)}
               className="px-4 py-2.5 text-xs font-bold text-slate-900 bg-amber-300 hover:bg-amber-400 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Neuen Verein aufnehmen</span>
             </button>
-          ) : (
+          ) : activePraesidiumTab === 'mitglieder' ? (
             <button
+              type="button"
               onClick={() => setIsAddUserOpen(true)}
               className="px-4 py-2.5 text-xs font-bold text-slate-900 bg-amber-300 hover:bg-amber-400 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>Neues Mitglied anlegen</span>
             </button>
-          )}
+          ) : vereinigungSubTab === 'news' ? (
+            <button
+              type="button"
+              onClick={() => setIsCreateVereinigungOpen(true)}
+              className="px-4 py-2.5 text-xs font-bold text-slate-900 bg-amber-300 hover:bg-amber-400 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Neue News verfassen</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
       {/* Sub-Tab Navigation Bar */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto scrollbar-none max-w-full">
+      <div
+        role="tablist"
+        aria-label="Präsidium-Bereiche"
+        className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto scrollbar-none max-w-full"
+      >
         <button
           type="button"
-          onClick={() => setActivePraesidiumTab('vereine')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+          role="tab"
+          aria-selected={activePraesidiumTab === 'vereine'}
+          onClick={() => handleSelectPraesidiumTab('vereine')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
             activePraesidiumTab === 'vereine'
               ? 'bg-amber-800 text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
           }`}
         >
-          <Building2 className="w-4 h-4" />
+          <Building2 className="w-4 h-4 shrink-0" />
           <span>Vereine & Präsidiumsrollen</span>
-          <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${activePraesidiumTab === 'vereine' ? 'bg-amber-950/60 text-amber-200' : 'bg-slate-100 text-slate-600'}`}>
+          <span className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded-full ${activePraesidiumTab === 'vereine' ? 'bg-amber-950/60 text-amber-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
             {clubs.length}
           </span>
         </button>
 
         <button
           type="button"
-          onClick={() => setActivePraesidiumTab('mitglieder')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+          role="tab"
+          aria-selected={activePraesidiumTab === 'mitglieder'}
+          onClick={() => handleSelectPraesidiumTab('mitglieder')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
             activePraesidiumTab === 'mitglieder'
               ? 'bg-amber-800 text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
           }`}
         >
-          <Users className="w-4 h-4" />
+          <Users className="w-4 h-4 shrink-0" />
           <span>Mitgliederverwaltung</span>
-          <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${activePraesidiumTab === 'mitglieder' ? 'bg-amber-950/60 text-amber-200' : 'bg-slate-100 text-slate-600'}`}>
+          <span className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded-full ${activePraesidiumTab === 'mitglieder' ? 'bg-amber-950/60 text-amber-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
             {allUsers.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activePraesidiumTab === 'vereinigung'}
+          onClick={() => handleSelectPraesidiumTab('vereinigung')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+            activePraesidiumTab === 'vereinigung'
+              ? 'bg-amber-800 text-white shadow-xs'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+          }`}
+        >
+          <Flag className="w-4 h-4 shrink-0" />
+          <span>Vereinigung Baden Pfalz</span>
+          <span className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded-full ${activePraesidiumTab === 'vereinigung' ? 'bg-amber-950/60 text-amber-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
+            {vereinigungEntries.length}
           </span>
         </button>
       </div>
@@ -459,58 +591,156 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
       {/* Content Tab 1: Vereine & Präsidiumsrollen */}
       {activePraesidiumTab === 'vereine' && (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Die 4 Präsidiumsrollen (4 cols) */}
-        <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-          <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-              <Shield className="w-4 h-4 text-amber-600" />
-              <span>Das Narrenkreis-Präsidium</span>
-            </h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Die 4 satzungsgemäßen Präsidiumsrollen
-            </p>
+        {/* Left Column: Die 4 Präsidiumsrollen + 2 Vereinigungs-Rollen & E-Mail-Verteiler (4 cols) */}
+        <div className="lg:col-span-4 space-y-5">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                <Shield className="w-4 h-4 text-amber-600" />
+                <span>Das Narrenkreis-Präsidium</span>
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Die 4 satzungsgemäßen Präsidiumsrollen (Admin-Zugang)
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {PRAESIDIUM_ROLES.map((role) => {
+                const holder = allUsers.find(u => u.praesidiumRole === role);
+                const holderClub = holder ? clubs.find(c => c.id === holder.clubId) : null;
+
+                return (
+                  <div
+                    key={role}
+                    className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2 text-xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded text-[11px]">
+                        {role}
+                      </span>
+                      <span className="text-[10px] text-slate-400">Amtsinhaber</span>
+                    </div>
+
+                    {holder ? (
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="flex items-center gap-2">
+                          <UserAvatar user={holder} size="xs" />
+                          <div>
+                            <span className="font-bold text-slate-900 block leading-tight">{holder.name}</span>
+                            <span className="text-[10px] text-slate-500">{holderClub?.shortName || holderClub?.name}</span>
+                          </div>
+                        </div>
+
+                        {/* Reassign dropdown */}
+                        <select
+                          value={holder.id}
+                          onChange={(e) => {
+                            const newUserId = e.target.value;
+                            // Revoke from previous holder, assign to new
+                            onUpdateUserRole(holder.id, null);
+                            if (newUserId) {
+                              onUpdateUserRole(newUserId, role);
+                            }
+                          }}
+                          className="text-[10px] border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none"
+                        >
+                          {allUsers.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-slate-400 italic text-xs">Aktuell unbesetzt</span>
+                        <select
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              onUpdateUserRole(e.target.value, role);
+                            }
+                          }}
+                          className="text-[10px] border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none"
+                        >
+                          <option value="">Besetzen...</option>
+                          {allUsers.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {PRAESIDIUM_ROLES.map((role) => {
-              const holder = allUsers.find(u => u.praesidiumRole === role);
-              const holderClub = holder ? clubs.find(c => c.id === holder.clubId) : null;
+          {/* 2 Neue Rollen: Vereinigung Baden-Pfalz + Weitere E-Mails für Änderungsmitteilungen */}
+          <div className="bg-white rounded-2xl border border-amber-200 p-5 shadow-xs space-y-4">
+            <div className="border-b border-slate-100 pb-3 flex items-start gap-2.5">
+              <VereinigungBadgeLogo size="sm" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 leading-snug">
+                  Vereinigung Baden-Pfalz · News-Rollen & Verteiler
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  2 Nicht-Admin-Rollen: erhalten das Vereinigungs-Logo neben ihrem Vereinslogo, verwalten ausschließlich das News-Feld und erhalten Änderungsmitteilungen per E-Mail.
+                </p>
+              </div>
+            </div>
 
-              return (
-                <div
-                  key={role}
-                  className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2 text-xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded text-[11px]">
-                      {role}
-                    </span>
-                    <span className="text-[10px] text-slate-400">Amtsinhaber</span>
-                  </div>
+            <div className="space-y-3">
+              {VEREINIGUNG_ROLES.map((vRole) => {
+                const holder = allUsers.find((u) => u.vereinigungRole === vRole);
+                const holderClub = holder ? clubs.find((c) => c.id === holder.clubId) : null;
 
-                  {holder ? (
-                    <div className="flex items-center justify-between pt-1">
-                      <div className="flex items-center gap-2">
-                        <UserAvatar user={holder} size="xs" />
-                        <div>
-                          <span className="font-bold text-slate-900 block leading-tight">{holder.name}</span>
-                          <span className="text-[10px] text-slate-500">{holderClub?.shortName || holderClub?.name}</span>
+                return (
+                  <div
+                    key={vRole}
+                    className="p-3 rounded-xl border border-amber-200/80 bg-amber-50/40 space-y-2 text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-amber-950 flex items-center gap-1">
+                        <Flag className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                        <span>{vRole}</span>
+                      </span>
+                      <span className="text-[10px] text-slate-500">Nur News</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                      {holder ? (
+                        <div className="flex items-center gap-2 min-w-0">
+                          <MemberClubLogos club={holderClub} user={holder} size="xs" />
+                          <div className="min-w-0">
+                            <span className="font-bold text-slate-900 block truncate leading-tight">
+                              {holder.name}
+                            </span>
+                            <span className="text-[10px] text-slate-500 block truncate">
+                              {holder.email}
+                            </span>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <span className="text-slate-400 italic text-xs">Unbesetzt</span>
+                      )}
 
-                      {/* Reassign dropdown */}
                       <select
-                        value={holder.id}
+                        value={holder?.id || ''}
+                        aria-label={`${vRole} zuweisen`}
                         onChange={(e) => {
                           const newUserId = e.target.value;
-                          // Revoke from previous holder, assign to new
-                          onUpdateUserRole(holder.id, null);
+                          if (holder && holder.id !== newUserId) {
+                            onUpdateUserVereinigungRole?.(holder.id, null);
+                          }
                           if (newUserId) {
-                            onUpdateUserRole(newUserId, role);
+                            onUpdateUserVereinigungRole?.(newUserId, vRole);
                           }
                         }}
-                        className="text-[10px] border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none"
+                        className="text-[11px] border border-slate-300 rounded px-2 py-1 bg-white focus:outline-none max-w-[140px] cursor-pointer"
                       >
+                        <option value="">Unbesetzt</option>
                         {allUsers.map((u) => (
                           <option key={u.id} value={u.id}>
                             {u.name}
@@ -518,29 +748,73 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
                         ))}
                       </select>
                     </div>
-                  ) : (
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-slate-400 italic text-xs">Aktuell unbesetzt</span>
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            onUpdateUserRole(e.target.value, role);
-                          }
-                        }}
-                        className="text-[10px] border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none"
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Weitere E-Mails für Änderungsportal */}
+            <div className="pt-3 border-t border-slate-100 space-y-2.5">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Weitere E-Mails für Änderungsmitteilungen</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Zusätzliche Adressen, die bei jeder Ämterneubesetzung automatisch per E-Mail informiert werden:
+                </p>
+              </div>
+
+              <form onSubmit={handleAddExtraEmail} className="flex items-center gap-1.5">
+                <input
+                  type="email"
+                  value={extraEmailInput}
+                  onChange={(e) => {
+                    setExtraEmailInput(e.target.value);
+                    if (extraEmailError) setExtraEmailError(null);
+                  }}
+                  placeholder="z.B. geschaeftsstelle@vbpkv.de"
+                  className="flex-1 text-xs px-2.5 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-2 rounded-lg bg-amber-300 hover:bg-amber-400 text-slate-900 text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Hinzufügen</span>
+                </button>
+              </form>
+
+              {extraEmailError && (
+                <p className="text-[11px] font-semibold text-rose-600">{extraEmailError}</p>
+              )}
+
+              {extraNotificationEmails.length === 0 ? (
+                <p className="text-[11px] text-slate-400 italic">
+                  Noch keine zusätzlichen E-Mail-Adressen hinterlegt.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {extraNotificationEmails.map((em) => (
+                    <div
+                      key={em}
+                      className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs"
+                    >
+                      <span className="font-mono text-[11px] text-slate-800 truncate">{em}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveExtraEmail(em)}
+                        className="text-rose-600 hover:text-rose-800 p-1 rounded hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                        title="E-Mail-Adresse entfernen"
+                        aria-label={`E-Mail ${em} entfernen`}
                       >
-                        <option value="">Besetzen...</option>
-                        {allUsers.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name}
-                          </option>
-                        ))}
-                      </select>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                  )}
+                  ))}
                 </div>
-              );
-            })}
+              )}
+            </div>
           </div>
         </div>
 
@@ -732,6 +1006,7 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
               >
                 <option value="Alle">Alle Rollen</option>
                 <option value="praesidium">Nur Präsidium</option>
+                <option value="vereinigung">Nur Vereinigung Baden-Pfalz</option>
                 <option value="mitglieder">Nur Vereinsmitglieder</option>
               </select>
             </div>
@@ -781,7 +1056,7 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-1.5">
-                              <ClubLogo club={memberClub} size="xs" />
+                              <MemberClubLogos club={memberClub} user={member} size="xs" />
                               <span className="font-semibold text-slate-800">{memberClub?.shortName || memberClub?.name || 'Unabhängig'}</span>
                             </div>
                             <span className="text-[11px] text-slate-500 block mt-0.5 font-medium">{member.positionInClub || 'Mitglied'}</span>
@@ -823,14 +1098,23 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
                             )}
                           </td>
                           <td className="py-3 px-4">
-                            {member.praesidiumRole ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                                <Shield className="w-3 h-3 text-amber-600" />
-                                {member.praesidiumRole}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 text-[11px]">Kein Amt</span>
-                            )}
+                            <div className="flex flex-col items-start gap-1">
+                              {member.praesidiumRole ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                                  <Shield className="w-3 h-3 text-amber-600" />
+                                  {member.praesidiumRole}
+                                </span>
+                              ) : null}
+                              {isVereinigungNewsManager(member) ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-950 border border-amber-300">
+                                  <Flag className="w-3 h-3 text-amber-700" />
+                                  {member.vereinigungRole}
+                                </span>
+                              ) : null}
+                              {!member.praesidiumRole && !isVereinigungNewsManager(member) && (
+                                <span className="text-slate-400 text-[11px]">Kein Amt</span>
+                              )}
+                            </div>
                           </td>
 
                           {/* Kästchen 1: Präsident (Verteiler) */}
@@ -918,6 +1202,25 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {/* Content Tab 3: Vereinigung Baden Pfalz (News & Änderungsmitteilung) */}
+      {activePraesidiumTab === 'vereinigung' && (
+        <VereinigungBadenPfalzSection
+          currentUser={currentUser}
+          users={allUsers}
+          clubs={clubs}
+          entries={vereinigungEntries}
+          additionalNotificationEmails={extraNotificationEmails}
+          activeSubTab={vereinigungSubTab}
+          onSubTabChange={setVereinigungSubTab}
+          onSaveEntry={(entry) => onSaveVereinigungEntry?.(entry)}
+          onDeleteEntry={(entryId) => onDeleteVereinigungEntry?.(entryId)}
+          onSendEmail={onSendEmail}
+          isCreateOpen={isCreateVereinigungOpen}
+          onOpenCreate={() => setIsCreateVereinigungOpen(true)}
+          onCloseCreate={() => setIsCreateVereinigungOpen(false)}
+        />
       )}
 
       {/* Modal: Verein anlegen */}
@@ -1620,6 +1923,22 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
+                  Vereinigung Baden-Pfalz News-Rolle (Keine Admin-Rechte)
+                </label>
+                <select
+                  value={editUserVereinigungRole}
+                  onChange={(e) => setEditUserVereinigungRole(e.target.value as any)}
+                  className="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
+                >
+                  <option value="none">Keine Vereinigungs-News-Rolle</option>
+                  {VEREINIGUNG_ROLES.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
                   Adresse (optional)
                 </label>
                 <input
@@ -1850,6 +2169,22 @@ export const PraesidiumView: React.FC<PraesidiumViewProps> = ({
                     className="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Vereinigung Baden-Pfalz News-Rolle (Keine Admin-Rechte)
+                </label>
+                <select
+                  value={newUserVereinigungRole}
+                  onChange={(e) => setNewUserVereinigungRole(e.target.value as any)}
+                  className="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
+                >
+                  <option value="none">Keine Vereinigungs-News-Rolle</option>
+                  {VEREINIGUNG_ROLES.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

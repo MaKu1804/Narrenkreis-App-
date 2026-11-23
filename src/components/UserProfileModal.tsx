@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, User, Mail, Phone, Shield, Check, UserPlus, Users, Calendar, Sparkles, Camera, Trash2 } from 'lucide-react';
 import { Club, UserProfile, Excursion } from '../utils/clubLogic';
-import { ClubLogo } from './ClubLogo';
+import { MemberClubLogos } from './ClubLogo';
 import { UserAvatar } from './UserAvatar';
 
 interface UserProfileModalProps {
@@ -168,7 +168,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               {/* Current Club badge banner */}
               <div className="p-4 rounded-xl border border-sky-100 bg-sky-50/60 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <ClubLogo club={currentClub} size="lg" />
+                  <MemberClubLogos club={currentClub} user={currentUser} size="lg" />
                   <div>
                     <span className="text-[11px] font-semibold text-sky-800 uppercase tracking-wider block">
                       Zugeordneter Verein
@@ -351,7 +351,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2 pt-2 border-t border-slate-100/80">
-                        <ClubLogo club={userClub} size="xs" />
+                        <MemberClubLogos club={userClub} user={user} size="xs" />
                         <span className="text-xs font-medium text-slate-700 truncate">
                           {userClub?.shortName || userClub?.name}
                         </span>

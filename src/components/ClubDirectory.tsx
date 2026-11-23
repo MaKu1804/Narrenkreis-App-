@@ -26,11 +26,12 @@ import {
   AlertCircle,
   RefreshCw,
   Database,
-  Globe
+  Globe,
+  Flag
 } from 'lucide-react';
 import { getWhatsAppUrl, getTelUrl } from '../utils/phoneUtils';
-import { Club, UserProfile, isPraesidiumMember, extractPhoneNumbers, resolveClubWebsite } from '../utils/clubLogic';
-import { ClubLogo } from './ClubLogo';
+import { Club, UserProfile, isPraesidiumMember, isVereinigungNewsManager, extractPhoneNumbers, resolveClubWebsite } from '../utils/clubLogic';
+import { ClubLogo, MemberClubLogos } from './ClubLogo';
 import { UserAvatar } from './UserAvatar';
 import { downloadContactVCard } from '../utils/vcardExport';
 
@@ -106,6 +107,7 @@ export const ClubDirectory: React.FC<ClubDirectoryProps> = ({
       (u.mobile || '').toLowerCase().includes(q) ||
       (u.positionInClub || '').toLowerCase().includes(q) ||
       (u.praesidiumRole || '').toLowerCase().includes(q) ||
+      (u.vereinigungRole || '').toLowerCase().includes(q) ||
       (club?.name || '').toLowerCase().includes(q) ||
       (club?.shortName || '').toLowerCase().includes(q);
 
@@ -529,19 +531,27 @@ export const ClubDirectory: React.FC<ClubDirectoryProps> = ({
                           </div>
                         </div>
 
-                        {/* Praesidium Badge if any */}
-                        {member.praesidiumRole && (
-                          <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
-                            <Award className="w-3 h-3 text-amber-600" />
-                            <span className="hidden sm:inline">{member.praesidiumRole}</span>
-                          </span>
-                        )}
+                        {/* Praesidium or Vereinigung Badge if any */}
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          {member.praesidiumRole && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                              <Award className="w-3 h-3 text-amber-600" />
+                              <span className="hidden sm:inline">{member.praesidiumRole}</span>
+                            </span>
+                          )}
+                          {isVereinigungNewsManager(member) && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 flex items-center gap-1" title="Verwaltet ausschließlich News der Vereinigung Baden-Pfalz (kein Admin)">
+                              <Flag className="w-3 h-3 text-amber-700" />
+                              <span className="hidden sm:inline">{member.vereinigungRole}</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Club affiliation */}
+                      {/* Club affiliation + optional Vereinigung logo */}
                       {memberClub && (
                         <div className="mt-3 flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-700">
-                          <ClubLogo club={memberClub} size="xs" />
+                          <MemberClubLogos club={memberClub} user={member} size="xs" />
                           <span className="font-semibold truncate">{memberClub.name}</span>
                           <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-auto">{memberClub.shortName}</span>
                         </div>
@@ -901,6 +911,14 @@ export const ClubDirectory: React.FC<ClubDirectoryProps> = ({
                                   {member.praesidiumRole}
                                 </span>
                               )}
+
+                              {/* Vereinigung role badge if applicable */}
+                              {isVereinigungNewsManager(member) && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 flex items-center gap-1">
+                                  <Flag className="w-3 h-3 text-amber-700" />
+                                  {member.vereinigungRole}
+                                </span>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-2.5 text-xs text-slate-500 mt-1.5 flex-wrap">
@@ -1031,10 +1049,16 @@ export const ClubDirectory: React.FC<ClubDirectoryProps> = ({
                         {selectedMember.praesidiumRole}
                       </span>
                     )}
+                    {isVereinigungNewsManager(selectedMember) && (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-300/20 text-amber-200 border border-amber-300/40 flex items-center gap-1">
+                        <Flag className="w-3 h-3 text-amber-300" />
+                        {selectedMember.vereinigungRole}
+                      </span>
+                    )}
                   </div>
                   {selectedClub && (
-                    <div className="flex items-center gap-1.5 text-xs text-amber-100/80 mt-1.5 truncate">
-                      <ClubLogo club={selectedClub} size="xs" />
+                    <div className="flex items-center gap-2 text-xs text-amber-100/80 mt-1.5 truncate">
+                      <MemberClubLogos club={selectedClub} user={selectedMember} size="xs" />
                       <span>{selectedClub.name}</span>
                     </div>
                   )}

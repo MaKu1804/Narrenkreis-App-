@@ -16,12 +16,12 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
-import { UserProfile, Club, isPraesidiumMember } from '../utils/clubLogic';
+import { UserProfile, Club, isPraesidiumMember, isVereinigungNewsManager } from '../utils/clubLogic';
 import { NotificationItem } from '../utils/notifications';
-import { ClubLogo } from './ClubLogo';
+import { MemberClubLogos } from './ClubLogo';
 import { UserAvatar } from './UserAvatar';
 
-export type TabType = 'forum' | 'calendar' | 'clubs' | 'protokolle' | 'profile' | 'praesidium';
+export type TabType = 'forum' | 'calendar' | 'clubs' | 'protokolle' | 'vereinigung' | 'profile' | 'praesidium';
 
 interface NavbarProps {
   activeTab: TabType;
@@ -68,28 +68,29 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const isPraesidium = isPraesidiumMember(currentUser);
+  const isVereinigungManager = isVereinigungNewsManager(currentUser);
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-2xs transition-colors">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 py-3">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 px-3 sm:px-5 py-2.5">
         {/* Zone 1: Brand wordmark with hidden link to official website */}
         <a 
           href="https://narrenkreis-bruchsal.de/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0 flex items-center gap-2.5 group cursor-pointer no-underline"
+          className="text-sm xl:text-base font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0 flex items-center gap-2 group cursor-pointer no-underline"
           title="Offizielle Website: https://narrenkreis-bruchsal.de/"
         >
           <img
             src="/assets/aistudio/Screenshot_20261021-104615_ee27e84a.png"
             alt="Narrenkreis Bruchsal Logo"
-            className="w-8 h-10 object-contain shrink-0 drop-shadow-xs group-hover:scale-105 transition-transform"
+            className="w-7 h-9 object-contain shrink-0 drop-shadow-xs group-hover:scale-105 transition-transform"
           />
           <span className="font-extrabold text-red-950 dark:text-red-400 group-hover:text-red-800 dark:group-hover:text-red-300 transition-colors">Narrenkreis Bruchsal</span>
         </a>
 
-        {/* Zone 2: Navigation tabs: FORUM, KALENDER, VEREINE, PROTOKOLLE, PROFIL, PRÄSIDIUM */}
-        <nav className="hidden lg:flex items-center gap-5 text-sm font-semibold text-slate-600 dark:text-slate-300">
+        {/* Zone 2: Navigation tabs: FORUM, KALENDER, VEREINE, PROTOKOLLE, VEREINIGUNG, PROFIL, PRÄSIDIUM */}
+        <nav className="hidden lg:flex items-center gap-2.5 xl:gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
           <button
             onClick={() => onTabChange('forum')}
             className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 flex items-center gap-1.5 ${
@@ -150,6 +151,21 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
+            onClick={() => onTabChange('vereinigung')}
+            className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 flex items-center gap-1.5 ${
+              activeTab === 'vereinigung'
+                ? 'text-amber-800 dark:text-amber-400 border-b-2 border-amber-600 dark:border-amber-500 font-bold'
+                : 'hover:text-slate-900 dark:hover:text-white border-b-2 border-transparent'
+            }`}
+            title="Vereinigung Baden Pfalz · News & Änderungsmitteilung"
+          >
+            <span>VEREINIGUNG</span>
+            {isVereinigungManager && (
+              <span className="w-2 h-2 rounded-full bg-amber-500" title="News-Verwaltung der Vereinigung aktiv" />
+            )}
+          </button>
+
+          <button
             onClick={() => onTabChange('profile')}
             className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 flex items-center gap-1.5 ${
               activeTab === 'profile'
@@ -181,17 +197,17 @@ export const Navbar: React.FC<NavbarProps> = ({
         </nav>
 
         {/* Zone 3: Active Profile Quick Indicator, Theme Switcher, Share & Logout */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {onSyncDatabase && (
             <button
               type="button"
               onClick={onSyncDatabase}
               disabled={isSyncing}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50/50 dark:hover:bg-amber-950/40 text-slate-700 dark:text-slate-200 hover:text-amber-900 dark:hover:text-amber-300 transition-colors text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50/50 dark:hover:bg-amber-950/40 text-slate-700 dark:text-slate-200 hover:text-amber-900 dark:hover:text-amber-300 transition-colors text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-50"
               title={`Cloud-Datenbank synchronisieren (${usersCount ?? 0} Mitglieder)`}
             >
               <RefreshCw className={`w-3.5 h-3.5 text-amber-700 dark:text-amber-400 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span className="hidden xl:inline">{isSyncing ? 'Sync...' : 'Live-Sync'}</span>
+              <span className="hidden 2xl:inline">{isSyncing ? 'Sync...' : 'Live-Sync'}</span>
             </button>
           )}
 
@@ -200,7 +216,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               type="button"
               onClick={onToggleTheme}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-amber-300 dark:hover:border-amber-600 hover:bg-amber-50/40 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 transition-colors text-xs font-semibold shadow-2xs cursor-pointer"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-amber-300 dark:hover:border-amber-600 hover:bg-amber-50/40 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 transition-colors text-xs font-semibold shadow-2xs cursor-pointer"
               title={isDarkMode ? 'Helles Design aktivieren' : 'Dunkles Design aktivieren (besonders angenehm bei Sitzungen am Abend & in Festhallen)'}
               aria-label="Design umschalten"
             >
@@ -209,7 +225,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               ) : (
                 <Moon className="w-3.5 h-3.5 text-slate-600" />
               )}
-              <span className="hidden sm:inline">{isDarkMode ? 'Hell' : 'Dunkel'}</span>
+              <span className="hidden 2xl:inline">{isDarkMode ? 'Hell' : 'Dunkel'}</span>
             </button>
           )}
 
@@ -217,11 +233,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               type="button"
               onClick={onShareApp}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-800 hover:bg-red-50/50 dark:hover:bg-red-950/40 text-slate-700 dark:text-slate-200 hover:text-red-800 dark:hover:text-red-300 transition-colors text-xs font-semibold shadow-2xs cursor-pointer"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-800 hover:bg-red-50/50 dark:hover:bg-red-950/40 text-slate-700 dark:text-slate-200 hover:text-red-800 dark:hover:text-red-300 transition-colors text-xs font-semibold shadow-2xs cursor-pointer"
               title="Diesen Link für Mitglieder kopieren (ohne Google-Konto, für alle Browser)"
             >
               {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5 text-red-700 dark:text-red-400" />}
-              <span className="hidden sm:inline">{copiedLink ? 'Kopiert!' : 'Link teilen'}</span>
+              <span className="hidden 2xl:inline">{copiedLink ? 'Kopiert!' : 'Link teilen'}</span>
             </button>
           )}
 
@@ -334,16 +350,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <button
             onClick={() => onTabChange('profile')}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-red-300 hover:bg-red-50/40 transition-colors bg-white shadow-2xs group cursor-pointer"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-red-300 hover:bg-red-50/40 dark:hover:bg-slate-800 transition-colors bg-white dark:bg-slate-900 shadow-2xs group cursor-pointer"
             title="Mein Profil bearbeiten"
           >
-            <ClubLogo club={currentClub} size="xs" />
+            <MemberClubLogos club={currentClub} user={currentUser} size="xs" />
             <div className="text-left hidden sm:block">
-              <span className="text-xs font-bold text-slate-900 block leading-tight group-hover:text-red-700">
+              <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight group-hover:text-red-700 dark:group-hover:text-red-400 truncate max-w-[115px]">
                 {currentUser.name}
               </span>
-              <span className="text-[10px] text-slate-500 block truncate max-w-[110px]">
-                {currentUser.praesidiumRole || currentClub?.shortName || 'Mitglied'}
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate max-w-[115px]">
+                {currentUser.praesidiumRole || currentUser.vereinigungRole || currentClub?.shortName || 'Mitglied'}
               </span>
             </div>
             <UserAvatar user={currentUser} size="xs" />
@@ -353,11 +369,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               type="button"
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold shadow-2xs cursor-pointer"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors text-xs font-semibold shadow-2xs cursor-pointer"
               title="Abmelden"
             >
-              <LogOut className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Abmelden</span>
+              <LogOut className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <span className="hidden 2xl:inline">Abmelden</span>
             </button>
           )}
         </div>
@@ -403,6 +419,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               {unreadCounts?.protokolle}
             </span>
           )}
+        </button>
+        <button
+          onClick={() => onTabChange('vereinigung')}
+          className={`px-2.5 py-1 rounded-md whitespace-nowrap shrink-0 flex items-center gap-1 ${activeTab === 'vereinigung' ? 'bg-amber-700 text-white font-bold' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}`}
+        >
+          <span>VEREINIGUNG</span>
         </button>
         <button
           onClick={() => onTabChange('profile')}

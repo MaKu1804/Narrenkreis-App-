@@ -23,7 +23,7 @@ import {
   CheckSquare
 } from 'lucide-react';
 import { ForumPost, UserProfile, Club, calculatePollResults, calculatePostRating } from '../utils/clubLogic';
-import { ClubLogo } from './ClubLogo';
+import { MemberClubLogos } from './ClubLogo';
 import { UserAvatar } from './UserAvatar';
 
 interface ForumViewProps {
@@ -307,6 +307,7 @@ export const ForumView: React.FC<ForumViewProps> = ({
         ) : (
           filteredPosts.map((post) => {
             const authorClub = clubs.find(c => c.id === post.authorClubId);
+            const authorUser = users.find(u => u.id === post.authorId);
             const { average: ratingAvg, count: ratingCount, userRating } = calculatePostRating(post.ratings, currentUser.id);
             const hasUpvoted = post.upvotes.includes(currentUser.id);
             const isCommentsExpanded = expandedCommentsPostId === post.id;
@@ -319,7 +320,7 @@ export const ForumView: React.FC<ForumViewProps> = ({
                 {/* Header: Author + Club + Category */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <ClubLogo club={authorClub} size="md" />
+                    <MemberClubLogos club={authorClub} user={authorUser} size="md" />
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-slate-900">{post.authorName}</span>
@@ -583,11 +584,12 @@ export const ForumView: React.FC<ForumViewProps> = ({
                       <div className="space-y-2.5">
                         {post.comments.map((comm) => {
                           const commClub = clubs.find(c => c.id === comm.authorClubId);
+                          const commUser = users.find(u => u.id === comm.authorId);
                           return (
                             <div key={comm.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs space-y-1">
                               <div className="flex items-center justify-between text-xs">
                                 <div className="flex items-center gap-2">
-                                  <ClubLogo club={commClub} size="xs" />
+                                  <MemberClubLogos club={commClub} user={commUser} size="xs" />
                                   <span className="font-bold text-slate-900">{comm.authorName}</span>
                                   <span className="text-slate-400 text-[11px]">
                                     ({commClub?.shortName || commClub?.name})
