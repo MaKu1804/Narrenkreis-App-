@@ -2,7 +2,7 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-const ACTIVE_CACHE_NAME = 'narrenkreis-bruchsal-v4';
+const ACTIVE_CACHE_NAME = 'narrenkreis-bruchsal-v5';
 
 // Register PWA Service Worker with aggressive cache-busting update handling
 if ('serviceWorker' in navigator) {
